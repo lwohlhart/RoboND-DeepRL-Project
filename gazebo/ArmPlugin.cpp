@@ -54,6 +54,8 @@
 #define REWARD_GOAL_APPROACHING 2.0f 
 #define REWARD_TIME_PENALTY -0.3f 
 
+#define GOAL_DELTA_SMOOTHING_ALPHA 0.4f 
+
 // Define Object Names
 #define WORLD_NAME "arm_world" 
 #define PROP_NAME  "tube" 
