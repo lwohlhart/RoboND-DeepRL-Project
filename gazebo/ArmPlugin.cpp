@@ -27,7 +27,7 @@
 #define DEBUG_DQN false 
 #define GAMMA 0.9f 
 #define EPS_START 0.9f 
-#define EPS_END 0.05f 
+#define EPS_END 0.01f 
 #define EPS_DECAY 200 
 
 /*
@@ -37,22 +37,24 @@
 
 #define INPUT_WIDTH   64 
 #define INPUT_HEIGHT  64 
-#define OPTIMIZER "Adam" 
-#define LEARNING_RATE 0.1f 
+#define OPTIMIZER "RMSprop" 
+#define LEARNING_RATE 0.05f // 0.05f  
 #define REPLAY_MEMORY 10000 
-#define BATCH_SIZE 256 
-#define USE_LSTM true 
-#define LSTM_SIZE 128 
+#define BATCH_SIZE 128 
+#define USE_LSTM false 
+#define LSTM_SIZE 16 
 
 /*
 / TODO - Define Reward Parameters
 /
 */
 
-#define REWARD_WIN  20.0f 
-#define REWARD_LOSS -20.0f 
-#define REWARD_GOAL_APPROACHING 2.0f 
-#define REWARD_TIME_PENALTY -0.3f 
+#define REWARD_WIN  100.0f 
+#define REWARD_LOSS -30.0f 
+#define REWARD_GOAL_APPROACHING 20.0f 
+#define REWARD_TIME_PENALTY -0.1f 
+
+#define GOAL_DELTA_SMOOTHING_ALPHA 0.2f 
 
 // Define Object Names
 #define WORLD_NAME "arm_world" 
@@ -268,8 +270,9 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		const bool collisionWithItem = (strcmp(contacts->contact(i).collision1().c_str(), COLLISION_ITEM) == 0);
 		if (collisionWithItem)
 		{
-			const bool collisionWithGripper = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0);
-			rewardHistory = collisionWithGripper ? REWARD_WIN : REWARD_LOSS;
+			//const bool correctCollision = (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0); // for task 2 checkCollision with gripper			
+			const bool correctCollision = true;
+			rewardHistory = correctCollision ? REWARD_WIN : REWARD_LOSS;
 			newReward  = true;
 			endEpisode = true;
 			return;
@@ -321,7 +324,7 @@ bool ArmPlugin::updateAgent()
 	/
 	*/
 	
-	float velocity = ref[action/2] + (1-2*(action%2)) * actionVelDelta; // TODO - Set joint velocity based on whether action is even or odd.
+	float velocity = ref[action/2] + (1.0f-2*(action%2)) * actionVelDelta; // TODO - Set joint velocity based on whether action is even or odd.
 
 	if( velocity < VELOCITY_MIN )
 		velocity = VELOCITY_MIN;
@@ -352,7 +355,7 @@ bool ArmPlugin::updateAgent()
 	/ TODO - Increase or decrease the joint position based on whether the action is even or odd
 	/
 	*/
-	float joint = ref[action/2] + (1-2*(action%2)) * actionJointDelta; // TODO - Set joint position based on whether action is even or odd.
+	float joint = ref[action/2] + (1.0f-2*(action%2)) * actionJointDelta; // TODO - Set joint position based on whether action is even or odd.
 
 	// limit the joint to the specified range
 	if( joint < JOINT_MIN )
@@ -595,7 +598,7 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 		if(!checkGroundContact)
 		{
-			const float distGoal = 0; // compute the reward from distance to the goal
+			const float distGoal = BoxDistance(gripBBox, propBBox); // compute the reward from distance to the goal
 
 			if(DEBUG){printf("distance('%s', '%s') = %f\n", gripper->GetName().c_str(), prop->model->GetName().c_str(), distGoal);}
 
@@ -642,7 +645,10 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 
 			for( uint32_t n=0; n < DOF; n++ )
+			{
+				ref[n] = 0.0f;
 				vel[n] = 0.0f;
+			}
 		}
 	}
 }
